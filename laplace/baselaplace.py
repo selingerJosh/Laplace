@@ -388,7 +388,7 @@ class ParametricLaplace(BaseLaplace):
             setattr(self.model, 'output_size', self.n_outputs)
 
         N = len(train_loader.dataset)
-        for X, y in train_loader:
+        for X, _, y in train_loader:
             self.model.zero_grad()
             X, y = X.to(self._device), y.to(self._device)
             loss_batch, H_batch = self._curv_closure(X, y, N)
