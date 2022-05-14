@@ -345,7 +345,7 @@ class ParametricLaplace(BaseLaplace):
         if self.H is None:
             raise AttributeError('Laplace not fitted. Run fit() first.')
 
-    def fit(self, train_loader, override=True):
+    def fit(self, train_loader, override=True, mask = False):
         """Fit the local Laplace approximation at the parameters of the model.
 
         Parameters
@@ -356,6 +356,8 @@ class ParametricLaplace(BaseLaplace):
         override : bool, default=True
             whether to initialize H, loss, and n_data again; setting to False is useful for
             online learning settings to accumulate a sequential posterior approximation.
+        mask: bool, default = False
+            whether model input includes mask (e.g. BERT attention mask)
         """
         if override:
             self._init_H()
@@ -365,14 +367,26 @@ class ParametricLaplace(BaseLaplace):
         self.model.eval()
         self.mean = parameters_to_vector(self.model.parameters()).detach()
 
-        X, _ = next(iter(train_loader))
-        with torch.no_grad():
-            try:
-                out = self.model(X[:1].to(self._device))
-            except (TypeError, AttributeError):
-                out = self.model(X.to(self._device))
-        self.n_outputs = out.shape[-1]
-        setattr(self.model, 'output_size', self.n_outputs)
+        if not mask:
+            X, _ = next(iter(train_loader))
+            with torch.no_grad():
+                try:
+                    out = self.model(X[:1].to(self._device))
+                except (TypeError, AttributeError):
+                    out = self.model(X.to(self._device))
+            self.n_outputs = out.shape[-1]
+            setattr(self.model, 'output_size', self.n_outputs)
+
+        else:
+            X, M, _ = next(iter(train_loader))
+            with torch.no_grad():
+                try:
+                    out = self.model(X[:1].to(self._device), M[:1].to(self._device))
+                except (TypeError, AttributeError):
+                    out = self.model(X.to(self._device), M.to(self._device))
+            self.n_outputs = out.shape[-1]
+            setattr(self.model, 'output_size', self.n_outputs)
+
 
         N = len(train_loader.dataset)
         for X, y in train_loader:
